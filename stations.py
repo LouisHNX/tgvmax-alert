@@ -23,6 +23,7 @@ STATIONS: dict[str, tuple[str | None, str]] = {
     "strasbourg": ("FRAEG", "STRASBOURG"),
     "toulouse": ("FRXYT", "TOULOUSE MATABIAU"),
     "montpellier": ("FRMPL", "MONTPELLIER SAINT ROCH"),
+    "montpellier-sud": ("FRSUF", "MONTPELLIER SUD DE FRANCE"),
     "nice": ("FRNIC", "NICE VILLE"),
     "avignon": ("FRAVG", "AVIGNON TGV"),
     "aix": ("FRAIE", "AIX EN PROVENCE TGV"),
