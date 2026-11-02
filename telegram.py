@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 import httpx
 
+from models import RECURRING_END, WEEKDAYS
 from stations import STATIONS, is_known
 
 log = logging.getLogger(__name__)
@@ -72,13 +73,15 @@ class Command:
     time_from: str | None = None
     time_to: str | None = None
     route_id: int | None = None
+    weekday: int | None = None
 
 
 HELP = (
     "Commandes (appliquées au prochain passage, dans les 6 h) :\n"
     "/add <départ> <arrivée> <date> [HH:MM-HH:MM]\n"
-    "   date : 15/11, 15/11-20/11 ou 2026-11-15\n"
+    "   date : 15/11, 15/11-20/11, 2026-11-15, ou un jour (jeudi) pour répéter chaque semaine\n"
     "   ex : /add paris lyon 15/11-20/11 08:00-12:00\n"
+    "   ex : /add paris lyon jeudi 08:00-12:00\n"
     "/list : routes surveillées\n"
     "/del <id> : supprimer une route\n"
     "/now : envoyer toutes les dispos actuelles\n"
@@ -188,10 +191,11 @@ def parse_command(text: str, today: date | None = None) -> Command | None:
         origin, dest = args[0], args[1]
         _check_station(origin)
         _check_station(dest)
-        d1, d2 = parse_date_spec(args[2], today)
+        weekday = WEEKDAYS.index(args[2].lower()) if args[2].lower() in WEEKDAYS else None
+        d1, d2 = (today.isoformat(), RECURRING_END) if weekday is not None else parse_date_spec(args[2], today)
         t1 = t2 = None
         if len(args) == 4:
             t1, t2 = parse_time_window(args[3])
         return Command("add", origin=_station_id(origin), dest=_station_id(dest),
-                       date_from=d1, date_to=d2, time_from=t1, time_to=t2)
+                       date_from=d1, date_to=d2, time_from=t1, time_to=t2, weekday=weekday)
     raise CommandError(f"Commande inconnue : /{name}\n\n{HELP}")

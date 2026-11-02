@@ -39,6 +39,8 @@ def connect(path: str | None = None) -> sqlite3.Connection:
         os.makedirs(parent, exist_ok=True)
     conn = sqlite3.connect(path, timeout=10)
     conn.executescript(SCHEMA)
+    if "weekday" not in [c[1] for c in conn.execute("PRAGMA table_info(routes)")]:
+        conn.execute("ALTER TABLE routes ADD COLUMN weekday INTEGER")  # databases created before weekly routes
     conn.commit()
     return conn
 
@@ -63,22 +65,22 @@ def set_offset(conn: sqlite3.Connection, offset: int) -> None:
 
 def _row_to_route(r) -> Route:
     return Route(id=r[0], origin=r[1], dest=r[2], date_from=r[3], date_to=r[4],
-                 time_from=r[5], time_to=r[6])
+                 time_from=r[5], time_to=r[6], weekday=r[7])
 
 
-def add_route(conn, origin, dest, date_from, date_to, time_from=None, time_to=None) -> Route:
+def add_route(conn, origin, dest, date_from, date_to, time_from=None, time_to=None, weekday=None) -> Route:
     with conn:
         cur = conn.execute(
-            "INSERT INTO routes(origin, dest, date_from, date_to, time_from, time_to) "
-            "VALUES(?,?,?,?,?,?)",
-            (origin, dest, date_from, date_to, time_from, time_to),
+            "INSERT INTO routes(origin, dest, date_from, date_to, time_from, time_to, weekday) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (origin, dest, date_from, date_to, time_from, time_to, weekday),
         )
-    return Route(cur.lastrowid, origin, dest, date_from, date_to, time_from, time_to)
+    return Route(cur.lastrowid, origin, dest, date_from, date_to, time_from, time_to, weekday)
 
 
 def list_routes(conn) -> list[Route]:
     rows = conn.execute(
-        "SELECT id, origin, dest, date_from, date_to, time_from, time_to FROM routes ORDER BY id"
+        "SELECT id, origin, dest, date_from, date_to, time_from, time_to, weekday FROM routes ORDER BY id"
     ).fetchall()
     return [_row_to_route(r) for r in rows]
 

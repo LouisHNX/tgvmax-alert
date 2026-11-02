@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+from datetime import date
 from unittest import mock
 
 import httpx
@@ -148,6 +149,11 @@ class PlannerTests(unittest.TestCase):
             with self.assertRaises(SourceError):
                 planner.fetch_available(Route(1, "paris-lyon", "marseille", "2026-11-15", "2026-11-15"),
                                         client=client_for(handler))
+
+    def test_weekly_route_asks_only_its_weekday(self):
+        days = planner._days(Route(1, "paris-lyon", "marseille", "2020-01-01", "2099-12-31", weekday=3))
+        self.assertTrue(1 <= len(days) <= 5)
+        self.assertEqual({date.fromisoformat(d).weekday() for d in days}, {3})
 
     def test_range_too_long(self):
         with self.assertRaises(SourceError):

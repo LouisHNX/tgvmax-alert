@@ -199,6 +199,16 @@ class RunTests(unittest.TestCase):
         ]))
         conn.close()
 
+    def test_weekly_route_from_command_filters_and_lists(self):
+        tg = FakeTelegram([upd(1, "/add montpellier lyon jeudi 04:00-08:00"), upd(2, "/list")])
+        s = FakeSource([train("1", day="2026-11-12", dep="06:29"), train("2", day="2026-11-11", dep="06:29")])
+        db.delete_route(self.conn, self.route.id)
+        self.go(tg, ("p", s))
+        self.assertIn("chaque jeudi", tg.sent[0][1])
+        self.assertIn("Chaque semaine", tg.sent[1][1])
+        self.assertIn("TGV 1", tg.sent[2][1])
+        self.assertNotIn("TGV 2", tg.sent[2][1])
+
     def test_dry_run_mode_does_not_persist(self):
         tg = run.PrintClient()
         self.go(tg, ("p", FakeSource([train()])), persist=False, process_commands=False)

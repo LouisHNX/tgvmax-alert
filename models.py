@@ -3,6 +3,7 @@ from datetime import date
 
 from stations import route_station
 
+RECURRING_END = "2099-12-31"  # date_to of a weekly route, so it never expires
 WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
 
 
@@ -35,10 +36,13 @@ class Route:
     date_to: str       # YYYY-MM-DD
     time_from: str | None = None  # HH:MM
     time_to: str | None = None
+    weekday: int | None = None    # 0 = Monday; set on a route that repeats every week
 
     def slot(self) -> str:
         dates = format_day(self.date_from)
-        if self.date_to != self.date_from:
+        if self.weekday is not None:
+            dates = f"chaque {WEEKDAYS[self.weekday]}"
+        elif self.date_to != self.date_from:
             dates += f" → {format_day(self.date_to)}"
         window = f" · {self.time_from}-{self.time_to}" if self.time_from else ""
         return f"#{self.id} · {dates}{window}"
@@ -48,6 +52,8 @@ class Route:
 
     def accepts(self, t: Train) -> bool:
         if not (self.date_from <= t.date <= self.date_to):
+            return False
+        if self.weekday is not None and date.fromisoformat(t.date).weekday() != self.weekday:
             return False
         if self.time_from and t.dep < self.time_from:
             return False

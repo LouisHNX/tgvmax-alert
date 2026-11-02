@@ -22,6 +22,7 @@ PLANNER_URL = "https://www.maxjeune-tgvinoui.sncf/api/public/refdata/search-free
 HEADERS = {"Accept": "application/json"}
 SLEEP_BETWEEN_CALLS = (1.0, 2.0)   # seconds, random range
 MAX_DAYS = 45                      # longer ranges are left to the open-data fallback
+HORIZON_DAYS = 30                  # the planner publishes seats for the next 30 days
 TIMEOUT = httpx.Timeout(15.0, connect=10.0)
 
 
@@ -76,7 +77,11 @@ def _sleep() -> None:
 def _days(route: Route) -> list[str]:
     start = date.fromisoformat(route.date_from)
     end = date.fromisoformat(route.date_to)
-    return [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
+    if route.weekday is not None:
+        start = date.today()
+        end = start + timedelta(days=HORIZON_DAYS)
+    days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    return [d.isoformat() for d in days if route.weekday in (None, d.weekday())]
 
 
 def _query_day(client: httpx.Client, o: str, d: str, day: str):

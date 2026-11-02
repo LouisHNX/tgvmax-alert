@@ -49,6 +49,7 @@ day. Raw codes (`/add FRPLY FRLPD 15/11`) work on the planner only.
 ## Commands
 - `/add <from> <to> <date> [HH:MM-HH:MM]`: date is `15/11`, `15/11-20/11` or `2026-11-15`
   (no year = next occurrence). Example: `/add paris lyon 15/11-20/11 08:00-12:00`
+- A weekday instead of a date repeats every week, without expiring: `/add paris lyon jeudi 08:00-12:00`
 - `/list`: routes with their IDs
 - `/del <id>`: remove a route
 - `/now`: send all currently available seats, not only the new ones

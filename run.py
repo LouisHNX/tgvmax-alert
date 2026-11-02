@@ -49,6 +49,8 @@ def format_route_list(routes: list[Route]) -> str:
         pairs.setdefault(frozenset((r.origin, r.dest)), []).append(r)
 
     def monday(r: Route) -> date:
+        if r.weekday is not None:
+            return date.min  # weekly routes come first, under their own title
         d = date.fromisoformat(r.date_from)
         return d - timedelta(days=d.weekday())
 
@@ -57,7 +59,7 @@ def format_route_list(routes: list[Route]) -> str:
         out, back = group[0].origin, group[0].dest
         lines = [f"🔁 {route_station(out)} ↔ {route_station(back)}"]
         for week in sorted({monday(r) for r in group}):
-            lines.append(f"\nSemaine du {week.day:02d}/{week.month:02d}")
+            lines.append("\nChaque semaine" if week == date.min else f"\nSemaine du {week.day:02d}/{week.month:02d}")
             for title, origin in (("Aller", out), ("Retour", back)):
                 legs = sorted((r for r in group if monday(r) == week and r.origin == origin),
                               key=lambda r: (r.date_from, r.time_from or ""))
@@ -86,7 +88,7 @@ def apply_command(conn, cmd: Command) -> tuple[str, bool]:
         return "OK, je vérifie tout de suite et j'envoie les dispos actuelles.", True
     if cmd.name == "add":
         r = db.add_route(conn, cmd.origin, cmd.dest, cmd.date_from, cmd.date_to,
-                         cmd.time_from, cmd.time_to)
+                         cmd.time_from, cmd.time_to, cmd.weekday)
         return f"Route ajoutée : {r.label()}", False
     return HELP, False
 

@@ -43,6 +43,12 @@ class ParseCommandTests(unittest.TestCase):
         c = parse_command("/add paris lyon 28/12-03/01", TODAY)  # range across new year
         self.assertEqual((c.date_from, c.date_to), ("2026-12-28", "2027-01-03"))
 
+    def test_add_weekly(self):
+        c = parse_command("/add montpellier lyon Jeudi 04:00-08:00", TODAY)
+        self.assertEqual((c.weekday, c.date_from, c.date_to), (3, "2026-11-02", "2099-12-31"))
+        self.assertEqual((c.time_from, c.time_to), ("04:00", "08:00"))
+        self.assertIsNone(parse_command("/add paris lyon 15/11", TODAY).weekday)
+
     def test_raw_planner_code(self):
         c = parse_command("/add frply frlys 15/11", TODAY)
         self.assertEqual((c.origin, c.dest), ("FRPLY", "FRLYS"))
