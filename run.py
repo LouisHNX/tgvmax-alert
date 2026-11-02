@@ -4,6 +4,7 @@ import logging
 import os
 import signal
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 
 import db
@@ -15,6 +16,7 @@ log = logging.getLogger("run")
 
 WATCHDOG_SECONDS = 600
 PLANNER_PAGE = "https://www.maxjeune-tgvinoui.sncf/sncf-connect/max-planner"
+REMINDER_RETRY_SECONDS = 10
 REMINDER_HOURS = range(12, 17)  # Paris time: the noon UTC run, before the 17:00 confirmation deadline
 
 
@@ -89,12 +91,17 @@ def send_reminder(conn, tg, chat_id: str, today: date, hour: int) -> None:
     routes = [r for r in db.list_routes(conn) if r.covers(tomorrow.isoformat())]
     if not routes:
         return
-    try:
-        tg.send_message(chat_id, format_reminder(routes, tomorrow))
-    except TelegramError as e:
-        log.error("telegram reminder failed: %s", e)
+    text = format_reminder(routes, tomorrow)
+    for attempt in range(2):  # the next run is after the deadline, so retry a network blip now
+        try:
+            tg.send_message(chat_id, text)
+        except TelegramError as e:
+            log.error("telegram reminder failed: %s", e)
+            if attempt == 0:
+                time.sleep(REMINDER_RETRY_SECONDS)
+            continue
+        db.set_reminder_day(conn, today.isoformat())
         return
-    db.set_reminder_day(conn, today.isoformat())
 
 
 # --- commands --------------------------------------------------------------

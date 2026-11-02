@@ -1,5 +1,6 @@
 import unittest
 from datetime import date
+from unittest import mock
 
 import db
 import run
@@ -245,7 +246,26 @@ class RunTests(unittest.TestCase):
         run.run(self.conn, tg, CHAT, [("p", FakeSource())], date(2026, 11, 2), hour=13)  # nothing on Tuesday
         self.assertEqual(tg.sent, [])
 
-    def test_failed_reminder_is_retried(self):
+    def test_reminder_retries_a_network_blip(self):
+        self.weekly_trips()
+        tg = FakeTelegram()
+        real_send, calls = tg.send_message, []
+
+        def flaky(chat_id, text):
+            calls.append(text)
+            if len(calls) == 1:
+                raise TelegramError("blip")
+            real_send(chat_id, text)
+
+        tg.send_message = flaky
+        with mock.patch.object(run.time, "sleep"):
+            run.run(self.conn, tg, CHAT, [("p", FakeSource())], date(2026, 11, 3), hour=13)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(tg.sent), 1)
+        self.assertEqual(db.get_reminder_day(self.conn), "2026-11-03")
+
+    @mock.patch.object(run.time, "sleep")
+    def test_failed_reminder_is_retried(self, _sleep):
         self.weekly_trips()
         tuesday = date(2026, 11, 3)
         self.assertEqual(run.run(self.conn, FakeTelegram(fail_send=True), CHAT, [("p", FakeSource())], tuesday, hour=13), 0)
