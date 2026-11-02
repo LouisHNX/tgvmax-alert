@@ -1,0 +1,11 @@
+{
+  "_comment": "HAND-MADE GUESS of the planner response, not a real capture. Replace with a real one.",
+  "proposals": [
+    {"departureDateTime": "2026-11-15T07:56:00+01:00", "arrivalDateTime": "2026-11-15T09:52:00+01:00",
+     "trainNumber": "6603", "freePlaces": 3},
+    {"departureDateTime": "2026-11-15T09:56:00+01:00", "arrivalDateTime": "2026-11-15T11:52:00+01:00",
+     "trainNumber": "6607", "freePlaces": 0},
+    {"departureDateTime": "2026-11-15T12:56:00+01:00", "arrivalDateTime": "2026-11-15T14:52:00+01:00",
+     "train": {"number": "6609"}}
+  ]
+}
