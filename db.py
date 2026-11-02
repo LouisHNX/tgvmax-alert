@@ -61,6 +61,20 @@ def set_offset(conn: sqlite3.Connection, offset: int) -> None:
         )
 
 
+def get_reminder_day(conn: sqlite3.Connection) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key='reminder_day'").fetchone()
+    return row[0] if row else None
+
+
+def set_reminder_day(conn: sqlite3.Connection, day: str) -> None:
+    with conn:
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES('reminder_day', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (day,),
+        )
+
+
 # --- routes ----------------------------------------------------------------
 
 def _row_to_route(r) -> Route:

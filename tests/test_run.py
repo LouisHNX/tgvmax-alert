@@ -219,6 +219,40 @@ class RunTests(unittest.TestCase):
         self.assertLess(text.index("#1 · chaque jeudi"), text.index("#2 · chaque vendredi"))
         conn.close()
 
+    def weekly_trips(self):
+        db.delete_route(self.conn, self.route.id)
+        db.add_route(self.conn, "montpellier", "lyon", "2026-11-02", "2099-12-31", "17:00", "20:00", weekday=2)
+        db.add_route(self.conn, "lyon", "montpellier", "2026-11-02", "2099-12-31", "11:00", "14:00", weekday=4)
+
+    def test_reminder_the_day_before_only_once(self):
+        self.weekly_trips()
+        tg = FakeTelegram()
+        tuesday = date(2026, 11, 3)
+        run.run(self.conn, tg, CHAT, [("p", FakeSource())], tuesday, hour=13)
+        self.assertEqual(len(tg.sent), 1)
+        self.assertEqual(tg.sent[0][1].split("\n"), [
+            "⏰ Vérifie le Max Planner avant 17h pour demain (mercredi 04/11) :",
+            "Montpellier Saint-Roch → Lyon · 17:00-20:00",
+            run.PLANNER_PAGE,
+        ])
+        run.run(self.conn, tg, CHAT, [("p", FakeSource())], tuesday, hour=14)
+        self.assertEqual(len(tg.sent), 1)
+
+    def test_no_reminder_outside_hours_or_without_trip(self):
+        self.weekly_trips()
+        tg = FakeTelegram()
+        run.run(self.conn, tg, CHAT, [("p", FakeSource())], date(2026, 11, 3), hour=19)
+        run.run(self.conn, tg, CHAT, [("p", FakeSource())], date(2026, 11, 2), hour=13)  # nothing on Tuesday
+        self.assertEqual(tg.sent, [])
+
+    def test_failed_reminder_is_retried(self):
+        self.weekly_trips()
+        tuesday = date(2026, 11, 3)
+        self.assertEqual(run.run(self.conn, FakeTelegram(fail_send=True), CHAT, [("p", FakeSource())], tuesday, hour=13), 0)
+        tg = FakeTelegram()
+        run.run(self.conn, tg, CHAT, [("p", FakeSource())], tuesday, hour=14)
+        self.assertEqual(len(tg.sent), 1)
+
     def test_dry_run_mode_does_not_persist(self):
         tg = run.PrintClient()
         self.go(tg, ("p", FakeSource([train()])), persist=False, process_commands=False)

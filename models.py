@@ -50,10 +50,13 @@ class Route:
     def label(self) -> str:
         return f"{route_station(self.origin)} → {route_station(self.dest)} {self.slot()}"
 
-    def accepts(self, t: Train) -> bool:
-        if not (self.date_from <= t.date <= self.date_to):
+    def covers(self, day: str) -> bool:
+        if not (self.date_from <= day <= self.date_to):
             return False
-        if self.weekday is not None and date.fromisoformat(t.date).weekday() != self.weekday:
+        return self.weekday in (None, date.fromisoformat(day).weekday())
+
+    def accepts(self, t: Train) -> bool:
+        if not self.covers(t.date):
             return False
         if self.time_from and t.dep < self.time_from:
             return False

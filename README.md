@@ -55,5 +55,7 @@ day. Raw codes (`/add FRPLY FRLPD 15/11`) work on the planner only.
 - `/now`: send all currently available seats, not only the new ones
 - `/help`
 
+The day before a trip, the noon UTC run sends one reminder to check the Max Planner before 17:00.
+
 A seat that disappears and comes back alerts again. Routes are deleted once their last date has passed.
 For an immediate check, use Run now in Railway. Known short station names are in `stations.py`.

@@ -14,14 +14,16 @@ from telegram import HELP, Command, CommandError, TelegramClient, TelegramError,
 log = logging.getLogger("run")
 
 WATCHDOG_SECONDS = 600
+PLANNER_PAGE = "https://www.maxjeune-tgvinoui.sncf/sncf-connect/max-planner"
+REMINDER_HOURS = range(12, 17)  # Paris time: the noon UTC run, before the 17:00 confirmation deadline
 
 
-def today_paris() -> date:
+def now_paris() -> datetime:
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Europe/Paris")).date()
+        return datetime.now(ZoneInfo("Europe/Paris"))
     except Exception:  # tzdata missing in a slim image
-        return datetime.now(timezone.utc).date()
+        return datetime.now(timezone.utc)
 
 
 # --- formatting ------------------------------------------------------------
@@ -68,6 +70,31 @@ def format_route_list(routes: list[Route]) -> str:
                     lines.extend(f"  {r.slot()}" for r in legs)
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
+
+
+def format_reminder(routes: list[Route], day: date) -> str:
+    lines = [f"⏰ Vérifie le Max Planner avant 17h pour demain ({format_day(day.isoformat())}) :"]
+    for r in sorted(routes, key=lambda r: r.time_from or ""):
+        window = f" · {r.time_from}-{r.time_to}" if r.time_from else ""
+        lines.append(f"{route_station(r.origin)} → {route_station(r.dest)}{window}")
+    lines.append(PLANNER_PAGE)
+    return "\n".join(lines)
+
+
+def send_reminder(conn, tg, chat_id: str, today: date, hour: int) -> None:
+    """At most one message a day, listing the routes that have a trip tomorrow."""
+    if hour not in REMINDER_HOURS or db.get_reminder_day(conn) == today.isoformat():
+        return
+    tomorrow = today + timedelta(days=1)
+    routes = [r for r in db.list_routes(conn) if r.covers(tomorrow.isoformat())]
+    if not routes:
+        return
+    try:
+        tg.send_message(chat_id, format_reminder(routes, tomorrow))
+    except TelegramError as e:
+        log.error("telegram reminder failed: %s", e)
+        return
+    db.set_reminder_day(conn, today.isoformat())
 
 
 # --- commands --------------------------------------------------------------
@@ -158,12 +185,14 @@ def check_route(route: Route, sources, down: set[str]) -> list[Train] | None:
 
 
 def run(conn, tg, chat_id: str, sources, today: date, persist: bool = True,
-        process_commands: bool = True) -> int:
+        process_commands: bool = True, hour: int | None = None) -> int:
     want_now = process_commands and process_updates(conn, tg, chat_id, today)
     if persist:
         purged = db.purge_expired(conn, today.isoformat())
         if purged:
             log.info("purged expired routes: %s", purged)
+        if hour is not None:
+            send_reminder(conn, tg, chat_id, today, hour)
 
     down: set[str] = set()
     groups, failed, current = [], [], {}
@@ -238,8 +267,9 @@ def main(argv=None) -> int:
 
     conn = db.connect()
     try:
-        return run(conn, tg, chat_id, sources, today_paris(),
-                   persist=not args.dry_run, process_commands=not args.dry_run)
+        now = now_paris()
+        return run(conn, tg, chat_id, sources, now.date(),
+                   persist=not args.dry_run, process_commands=not args.dry_run, hour=now.hour)
     finally:
         conn.close()
 
