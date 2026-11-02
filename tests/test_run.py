@@ -209,6 +209,16 @@ class RunTests(unittest.TestCase):
         self.assertIn("TGV 1", tg.sent[2][1])
         self.assertNotIn("TGV 2", tg.sent[2][1])
 
+    def test_route_list_orders_weekly_routes_by_day(self):
+        conn = db.connect(":memory:")
+        db.add_route(conn, "lyon", "montpellier", "2026-11-02", "2099-12-31", "17:00", "22:00", weekday=3)
+        db.add_route(conn, "lyon", "montpellier", "2026-11-02", "2099-12-31", "11:00", "14:00", weekday=4)
+        db.add_route(conn, "lyon", "montpellier", "2026-11-02", "2099-12-31", "04:00", "08:00", weekday=3)
+        text = run.format_route_list(db.list_routes(conn))
+        self.assertLess(text.index("#3 · chaque jeudi"), text.index("#1 · chaque jeudi"))
+        self.assertLess(text.index("#1 · chaque jeudi"), text.index("#2 · chaque vendredi"))
+        conn.close()
+
     def test_dry_run_mode_does_not_persist(self):
         tg = run.PrintClient()
         self.go(tg, ("p", FakeSource([train()])), persist=False, process_commands=False)

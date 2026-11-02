@@ -62,7 +62,7 @@ def format_route_list(routes: list[Route]) -> str:
             lines.append("\nChaque semaine" if week == date.min else f"\nSemaine du {week.day:02d}/{week.month:02d}")
             for title, origin in (("Aller", out), ("Retour", back)):
                 legs = sorted((r for r in group if monday(r) == week and r.origin == origin),
-                              key=lambda r: (r.date_from, r.time_from or ""))
+                              key=lambda r: (r.weekday or 0, r.date_from, r.time_from or ""))
                 if legs:
                     lines.append(f"{title} :")
                     lines.extend(f"  {r.slot()}" for r in legs)
