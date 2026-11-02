@@ -30,20 +30,18 @@ TELEGRAM_BOT_TOKEN=... ALLOWED_CHAT_ID=... python run.py
 1. Push this folder to a GitHub repo, then New Project > Deploy from GitHub repo.
 2. Service > Settings: add a **Volume** mounted at `/data` (the SQLite state lives there).
 3. Variables: `TELEGRAM_BOT_TOKEN`, `ALLOWED_CHAT_ID`, `DB_PATH=/data/alert.db`.
-4. `railway.json` already sets start command `python run.py`, cron `0 */6 * * *` (UTC: 00/06/12/18h)
-   and restart policy Never. Check they show in Settings; no public networking needed.
+4. In Settings, set start command `python run.py` and cron `0 */6 * * *` (UTC: 00/06/12/18h).
+   Railway stops reading `railway.json` on 2026-12-01. No public networking needed.
 5. Trigger a run by hand (Run now) and read the logs: they say which source answered.
    Expect exit code 0 in well under a minute.
-
-If a cron service cannot mount a volume, the state would need another store (e.g. a GitHub Gist).
 
 ## 5. What the sources rely on (checked 2026-11-02)
 **Planner** (`sources/planner.py`): `GET .../search-freeplaces-proposals?origin=&destination=&departureDateTime=`,
 one call per station pair and per day, over the next 30 days. It answers per station, so `paris` and
 `lyon` are resolved to real pairs through the open data. The fixture is a real browser capture.
 
-**Not verified:** a call from outside a browser. The site uses DataDome and the page sends `x-client-*`
-headers that this code does not send. If the planner refuses, the logs show it and the open data takes over.
+**Blocked from Railway:** the planner answers HTTP 403 there (seen 2026-11-02). The site uses DataDome and
+the page sends `x-client-*` headers that this code does not send. The open data takes over, and the logs show it.
 
 **Open data** (`sources/opendata.py`): refreshed about once a day, so it misses seats freed during the
 day. Raw codes (`/add FRPLY FRLPD 15/11`) work on the planner only.
