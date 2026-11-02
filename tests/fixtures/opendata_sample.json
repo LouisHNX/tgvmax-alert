@@ -1,18 +1,9 @@
 {
   "total_count": 4,
   "results": [
-    {"date": "2026-11-15", "train_no": "6603", "entity": "SNCF", "axe": "SUD-EST",
-     "origine_iata": "XPG", "destination_iata": "XYD",
-     "origine": "PARIS (intramuros)", "destination": "LYON (intramuros)",
-     "heure_depart": "07:56", "heure_arrivee": "09:52", "od_happy_card": "OUI"},
-    {"date": "2026-11-15", "train_no": "06609", "origine": "PARIS (intramuros)",
-     "destination": "LYON (intramuros)", "heure_depart": "12:56:00", "heure_arrivee": "14:52:00",
-     "od_happy_card": "OUI"},
-    {"date": "2026-11-16", "train_no": "6611", "origine": "PARIS (intramuros)",
-     "destination": "LYON (intramuros)", "heure_depart": "08:56", "heure_arrivee": "10:52",
-     "od_happy_card": "NON"},
-    {"date": "2026-11-16", "train_no": null, "origine": "PARIS (intramuros)",
-     "destination": "LYON (intramuros)", "heure_depart": "09:56", "heure_arrivee": "11:52",
-     "od_happy_card": "OUI"}
+    {"date": "2026-11-05", "train_no": "6603", "entity": "PARISRHONE", "axe": "SUD EST", "origine_iata": "FRPLY", "destination_iata": "FRLPD", "origine": "PARIS (intramuros)", "destination": "LYON (intramuros)", "heure_depart": "07:00", "heure_arrivee": "08:56", "od_happy_card": "NON"},
+    {"date": "2026-11-05", "train_no": "6603", "entity": "PARISRHONE", "axe": "SUD EST", "origine_iata": "FRPLY", "destination_iata": "FRLPE", "origine": "PARIS (intramuros)", "destination": "LYON (intramuros)", "heure_depart": "07:00", "heure_arrivee": "09:10", "od_happy_card": "NON"},
+    {"date": "2026-11-05", "train_no": "6641", "entity": "PARISRHONE", "axe": "SUD EST", "origine_iata": "FRPLY", "destination_iata": "FRLPD", "origine": "PARIS (intramuros)", "destination": "LYON (intramuros)", "heure_depart": "06:20", "heure_arrivee": "08:22", "od_happy_card": "OUI"},
+    {"date": "2026-11-05", "train_no": "6641", "entity": "PARISRHONE", "axe": "SUD EST", "origine_iata": "FRPLY", "destination_iata": "FRLPE", "origine": "PARIS (intramuros)", "destination": "LYON (intramuros)", "heure_depart": "06:20", "heure_arrivee": "08:34", "od_happy_card": "OUI"}
   ]
 }

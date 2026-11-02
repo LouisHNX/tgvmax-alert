@@ -37,23 +37,16 @@ TELEGRAM_BOT_TOKEN=... ALLOWED_CHAT_ID=... python run.py
 
 If a cron service cannot mount a volume, the state would need another store (e.g. a GitHub Gist).
 
-## 5. Things to verify once (nothing here could be checked offline)
-Search for `TODO(verify)` in `sources/`.
+## 5. What the sources rely on (checked 2026-11-02)
+**Planner** (`sources/planner.py`): `GET .../search-freeplaces-proposals?origin=&destination=&departureDateTime=`,
+one call per station pair and per day, over the next 30 days. It answers per station, so `paris` and
+`lyon` are resolved to real pairs through the open data. The fixture is a real browser capture.
 
-**Planner endpoint** (`sources/planner.py`): open
-https://www.maxjeune-tgvinoui.sncf/sncf-connect/max-planner, DevTools > Network > Fetch/XHR,
-run a search. Compare the request with `PLANNER_URL`, `HEADERS`, `build_body()` and the response
-with `parse_response()` (key names in the `PROPOSAL_*_KEYS` constants). Save a real response over
-`tests/fixtures/planner_sample.json` and make the test pass.
+**Not verified:** a call from outside a browser. The site uses DataDome and the page sends `x-client-*`
+headers that this code does not send. If the planner refuses, the logs show it and the open data takes over.
 
-**Station codes** (`stations.py`): the `origin`/`destination` values in that same request body are
-the planner codes. You can bypass the table: `/add FRPLY FRLYS 15/11` uses raw codes (planner only,
-the open-data fallback needs the short names). Note `annecy` and `nancy` currently share `FRNCY`.
-
-**Open data** (`sources/opendata.py`): on https://data.sncf.com/explore/dataset/tgvmax/ check the
-field names (`date`, `train_no`, `origine`, `destination`, `heure_depart`, `heure_arrivee`,
-`od_happy_card`), the station labels (e.g. `PARIS (intramuros)`) and the `where` syntax, using the
-"API" tab. Replace `tests/fixtures/opendata_sample.json` with a real record sample.
+**Open data** (`sources/opendata.py`): refreshed about once a day, so it misses seats freed during the
+day. Raw codes (`/add FRPLY FRLPD 15/11`) work on the planner only.
 
 ## Commands
 - `/add <from> <to> <date> [HH:MM-HH:MM]`: date is `15/11`, `15/11-20/11` or `2026-11-15`

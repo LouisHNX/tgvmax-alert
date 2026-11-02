@@ -26,10 +26,20 @@ ROUTE = Route(1, "paris", "lyon", "2026-11-15", "2026-11-16")
 class OpenDataTests(unittest.TestCase):
     def test_parse_records(self):
         trains = opendata.parse_records(load("opendata_sample.json"))
-        # the NON row and the row without train_no are dropped
+        # the NON rows are dropped; 6641 has one row per Lyon station
         self.assertEqual([(t.date, t.train_no, t.dep, t.arr) for t in trains],
-                         [("2026-11-15", "6603", "07:56", "09:52"),
-                          ("2026-11-15", "06609", "12:56", "14:52")])
+                         [("2026-11-05", "6641", "06:20", "08:22"),
+                          ("2026-11-05", "6641", "06:20", "08:34")])
+
+    def test_parse_drops_row_without_train_no(self):
+        row = {"date": "2026-11-05", "train_no": None, "heure_depart": "06:20", "od_happy_card": "OUI"}
+        self.assertEqual(opendata.parse_records({"results": [row]}), [])
+
+    def test_fetch_keeps_first_arrival_per_train(self):
+        rows = [r for r in load("opendata_sample.json")["results"] if r["od_happy_card"] == "OUI"]
+        trains = opendata.fetch_available(
+            ROUTE, client=client_for(lambda r: httpx.Response(200, json={"results": rows})))
+        self.assertEqual([t.arr for t in trains], ["08:22"])
 
     def test_parse_bad_shape(self):
         with self.assertRaises(SourceError):
@@ -78,26 +88,55 @@ class PlannerTests(unittest.TestCase):
 
     def test_parse_sample(self):
         trains = planner.parse_response(load("planner_sample.json"), "paris", "lyon")
-        self.assertEqual([(t.date, t.dep, t.arr, t.train_no, t.seats) for t in trains],
-                         [("2026-11-15", "07:56", "09:52", "6603", 3),
-                          ("2026-11-15", "12:56", "14:52", "6609", None)])  # 6607 has 0 seats
+        self.assertEqual(len(trains), 6)
+        t = trains[0]
+        self.assertEqual((t.date, t.dep, t.arr, t.train_no, t.seats),
+                         ("2026-11-07", "17:00", "18:56", "6687", 36))
+
+    def test_parse_skips_zero_seats(self):
+        p = {"dep": "2026-11-07T17:00", "arr": "2026-11-07T18:56", "num": "6687", "count": 0}
+        self.assertEqual(planner.parse_response({"proposals": [p]}), [])
 
     def test_parse_empty(self):
-        self.assertEqual(planner.parse_response([]), [])
         self.assertEqual(planner.parse_response({"proposals": []}), [])
 
+    def test_parse_unknown_shape_fails(self):
+        # must reach the fallback, not look like "no seats"
+        for bad in ([], {"error": "nope"}):
+            with self.assertRaises(SourceError):
+                planner.parse_response(bad)
+
     def test_fetch_one_call_per_day(self):
-        bodies = []
+        params = []
 
         def handler(req):
-            bodies.append(json.loads(req.content))
+            self.assertEqual(req.method, "GET")
+            params.append(req.url.params)
             return httpx.Response(200, json=load("planner_sample.json"))
 
-        trains = planner.fetch_available(ROUTE, client=client_for(handler))
-        self.assertEqual([b["departureDateTime"][:10] for b in bodies], ["2026-11-15", "2026-11-16"])
-        self.assertEqual(bodies[0]["origin"], "FRPAR")
+        route = Route(1, "paris-lyon", "marseille", "2026-11-15", "2026-11-16")
+        trains = planner.fetch_available(route, client=client_for(handler))
+        self.assertEqual([p["departureDateTime"] for p in params],
+                         ["2026-11-15T01:00:00.000Z", "2026-11-16T01:00:00.000Z"])
+        self.assertEqual((params[0]["origin"], params[0]["destination"]), ("FRPLY", "FRMSC"))
         self.assertEqual(self.sleep.call_count, 1)
-        self.assertEqual(len(trains), 2)  # same fixture twice -> deduplicated
+        self.assertEqual(len(trains), 6)  # same fixture twice -> deduplicated
+
+    def test_fetch_city_uses_open_data_pairs(self):
+        asked = []
+
+        def handler(req):
+            if req.url.host == "data.sncf.com":
+                self.assertIn('origine="PARIS (intramuros)"', req.url.params["where"])
+                return httpx.Response(200, json={"results": [
+                    {"origine_iata": "FRPLY", "destination_iata": "FRLPE"},
+                    {"origine_iata": "FRPLY", "destination_iata": "FRLPD"}]})
+            asked.append(req.url.params["destination"])
+            return httpx.Response(200, json={"proposals": []})
+
+        planner.fetch_available(Route(1, "paris", "lyon", "2026-11-15", "2026-11-15"),
+                                client=client_for(handler))
+        self.assertEqual(asked, ["FRLPD", "FRLPE"])
 
     def test_blocked_or_captcha(self):
         for handler in (lambda r: httpx.Response(403, text="blocked"),
@@ -106,7 +145,7 @@ class PlannerTests(unittest.TestCase):
                         lambda r: httpx.Response(200, text="{oops", headers={"content-type": "application/json"}),
                         mock.Mock(side_effect=httpx.ReadTimeout("slow"))):
             with self.assertRaises(SourceError):
-                planner.fetch_available(Route(1, "paris", "lyon", "2026-11-15", "2026-11-15"),
+                planner.fetch_available(Route(1, "paris-lyon", "marseille", "2026-11-15", "2026-11-15"),
                                         client=client_for(handler))
 
     def test_range_too_long(self):

@@ -1,42 +1,40 @@
 """Short station names -> (planner code, open-data label).
 
-The planner codes and open-data labels below are best guesses and MUST be
-checked once:
-  - planner code: DevTools -> Network on the max-planner page, run a search,
-    look at the "origin"/"destination" values in the request body.
-  - open-data label: values of the `origine` / `destination` fields in the
-    data.sncf.com `tgvmax` dataset.
-You can also skip this table entirely: `/add FRPLY FRLPD 15/11` uses raw
-planner codes, and any unknown name is passed through as-is.
+Codes and labels come from the `origine_iata` / `origine` values of the open-data
+`tgvmax` dataset, which use the same codes as the planner.
+A planner code of None means several stations (paris, lyon, lille): the planner
+only answers per station, so the real pairs are looked up in the open data.
+You can also skip this table: `/add FRPLY FRLPD 15/11` uses raw planner codes,
+and any unknown name is passed through as-is.
 """
 
-STATIONS: dict[str, tuple[str, str]] = {
-    "paris": ("FRPAR", "PARIS (intramuros)"),
+STATIONS: dict[str, tuple[str | None, str]] = {
+    "paris": (None, "PARIS (intramuros)"),
     "paris-lyon": ("FRPLY", "PARIS (intramuros)"),
     "paris-montparnasse": ("FRPMO", "PARIS (intramuros)"),
     "paris-nord": ("FRPNO", "PARIS (intramuros)"),
     "paris-est": ("FRPST", "PARIS (intramuros)"),
-    "lyon": ("FRLYS", "LYON (intramuros)"),
+    "lyon": (None, "LYON (intramuros)"),
     "marseille": ("FRMSC", "MARSEILLE ST CHARLES"),
     "bordeaux": ("FRBOJ", "BORDEAUX ST JEAN"),
-    "lille": ("FRLLE", "LILLE (intramuros)"),
+    "lille": (None, "LILLE (intramuros)"),
     "nantes": ("FRNTE", "NANTES"),
     "rennes": ("FRRNS", "RENNES"),
-    "strasbourg": ("FRSXB", "STRASBOURG"),
-    "toulouse": ("FRTLS", "TOULOUSE MATABIAU"),
+    "strasbourg": ("FRAEG", "STRASBOURG"),
+    "toulouse": ("FRXYT", "TOULOUSE MATABIAU"),
     "montpellier": ("FRMPL", "MONTPELLIER SAINT ROCH"),
     "nice": ("FRNIC", "NICE VILLE"),
     "avignon": ("FRAVG", "AVIGNON TGV"),
     "aix": ("FRAIE", "AIX EN PROVENCE TGV"),
-    "dijon": ("FRDJV", "DIJON VILLE"),
+    "dijon": ("FRABA", "DIJON VILLE"),
     "grenoble": ("FRGNB", "GRENOBLE"),
     "annecy": ("FRNCY", "ANNECY"),
     "tours": ("FRXSH", "ST PIERRE DES CORPS"),
-    "le-mans": ("FRLEM", "LE MANS"),
-    "angers": ("FRANE", "ANGERS SAINT LAUD"),
+    "le-mans": ("FRAET", "LE MANS"),
+    "angers": ("FRACL", "ANGERS SAINT LAUD"),
     "brest": ("FRBES", "BREST"),
-    "metz": ("FRMZM", "METZ VILLE"),
-    "nancy": ("FRNCY", "NANCY"),
+    "metz": ("FRADE", "METZ VILLE"),
+    "nancy": ("FRENC", "NANCY"),
 }
 
 
@@ -44,7 +42,7 @@ def _norm(name: str) -> str:
     return name.strip().lower().replace(" ", "-")
 
 
-def planner_code(name: str) -> str:
+def planner_code(name: str) -> str | None:
     entry = STATIONS.get(_norm(name))
     return entry[0] if entry else name.strip().upper()
 
