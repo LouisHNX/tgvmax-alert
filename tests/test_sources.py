@@ -26,6 +26,7 @@ ROUTE = Route(1, "paris", "lyon", "2026-11-15", "2026-11-16")
 class OpenDataTests(unittest.TestCase):
     def test_parse_records(self):
         trains = opendata.parse_records(load("opendata_sample.json"))
+        self.assertEqual((trains[0].origin, trains[0].dest), ("Paris Gare de Lyon", "Lyon Part-Dieu"))
         # the NON rows are dropped; 6641 has one row per Lyon station
         self.assertEqual([(t.date, t.train_no, t.dep, t.arr) for t in trains],
                          [("2026-11-05", "6641", "06:20", "08:22"),

@@ -9,7 +9,7 @@ import logging
 import httpx
 
 from models import Route, SourceError, Train
-from stations import STATIONS, opendata_label, planner_code
+from stations import STATIONS, full_name, opendata_label, planner_code
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,8 @@ def parse_records(payload: dict) -> list[Train]:
         if len(day) != 10 or no in (None, "") or len(dep) != 5:
             continue
         out.append(Train(date=day, dep=dep, arr=arr, train_no=str(no),
-                         origin=str(r.get(F_ORIGIN) or ""), dest=str(r.get(F_DEST) or "")))
+                         origin=full_name(r.get(F_ORIGIN_CODE), str(r.get(F_ORIGIN) or "")),
+                         dest=full_name(r.get(F_DEST_CODE), str(r.get(F_DEST) or ""))))
     return out
 
 

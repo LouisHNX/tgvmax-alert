@@ -1,4 +1,14 @@
 from dataclasses import dataclass
+from datetime import date
+
+from stations import route_station
+
+WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+
+
+def format_day(iso: str) -> str:
+    d = date.fromisoformat(iso)
+    return f"{WEEKDAYS[d.weekday()]} {d.day:02d}/{d.month:02d}"
 
 
 @dataclass(frozen=True)
@@ -26,10 +36,15 @@ class Route:
     time_from: str | None = None  # HH:MM
     time_to: str | None = None
 
+    def slot(self) -> str:
+        dates = format_day(self.date_from)
+        if self.date_to != self.date_from:
+            dates += f" → {format_day(self.date_to)}"
+        window = f" · {self.time_from}-{self.time_to}" if self.time_from else ""
+        return f"#{self.id} · {dates}{window}"
+
     def label(self) -> str:
-        dates = self.date_from if self.date_from == self.date_to else f"{self.date_from} → {self.date_to}"
-        window = f" {self.time_from}-{self.time_to}" if self.time_from else ""
-        return f"#{self.id} {self.origin} → {self.dest} · {dates}{window}"
+        return f"{route_station(self.origin)} → {route_station(self.dest)} {self.slot()}"
 
     def accepts(self, t: Train) -> bool:
         if not (self.date_from <= t.date <= self.date_to):

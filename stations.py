@@ -38,6 +38,22 @@ STATIONS: dict[str, tuple[str | None, str]] = {
     "nancy": ("FRENC", "NANCY"),
 }
 
+# Exact names where the open-data label is vague ("LYON (intramuros)") or badly spelled.
+FULL_NAMES = {
+    "FRPLY": "Paris Gare de Lyon",
+    "FRPMO": "Paris Montparnasse",
+    "FRPNO": "Paris Nord",
+    "FRPST": "Paris Est",
+    "FRPAZ": "Paris Austerlitz",
+    "FRPBE": "Paris Bercy",
+    "FRLPD": "Lyon Part-Dieu",
+    "FRLPE": "Lyon Perrache",
+    "FRADJ": "Lille Europe",
+    "FRLLE": "Lille Flandres",
+    "FRMPL": "Montpellier Saint-Roch",
+    "FRSUF": "Montpellier Sud de France",
+}
+
 
 def _norm(name: str) -> str:
     return name.strip().lower().replace(" ", "-")
@@ -51,6 +67,16 @@ def planner_code(name: str) -> str | None:
 def opendata_label(name: str) -> str:
     entry = STATIONS.get(_norm(name))
     return entry[1] if entry else name.strip().upper()
+
+
+def full_name(code: str | None, label: str = "") -> str:
+    return FULL_NAMES.get(code) or label.title() or code or ""
+
+
+def route_station(name: str) -> str:
+    """Display name of what a route watches: the city alone when it covers several stations."""
+    code = planner_code(name)
+    return full_name(code, opendata_label(name)) if code else name.strip().title()
 
 
 def is_known(name: str) -> bool:

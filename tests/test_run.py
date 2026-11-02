@@ -32,7 +32,7 @@ def upd(uid, text, chat=CHAT):
 
 
 def train(no="6603", day="2026-11-15", dep="07:56", arr="09:52"):
-    return Train(date=day, dep=dep, arr=arr, train_no=no, origin="x", dest="y")
+    return Train(date=day, dep=dep, arr=arr, train_no=no, origin="Paris Gare de Lyon", dest="Lyon Part-Dieu")
 
 
 class FakeSource:
@@ -62,7 +62,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual(self.go(tg, src), 0)
         self.assertEqual(len(tg.sent), 1)
         self.assertEqual(tg.sent[0][1],
-                         "🚄 Paris → Lyon · dim. 15/11 · 07:56→09:52 · TGV 6603 — place MAX dispo")
+                         "🚄 Paris Gare de Lyon → Lyon Part-Dieu · dimanche 15/11 · 07:56→09:52 · TGV 6603 — place MAX dispo")
         self.go(tg, src)
         self.assertEqual(len(tg.sent), 1)  # nothing new
 
@@ -101,9 +101,7 @@ class RunTests(unittest.TestCase):
         tg = FakeTelegram()
         self.go(tg, ("p", FakeSource([train()])))
         self.assertEqual(len(tg.sent), 1)  # ONE message
-        a, b = tg.sent[0][1].split("\n\n")
-        self.assertIn("Paris → Lyon", a)
-        self.assertIn("Lille → Nantes", b)
+        self.assertEqual(len(tg.sent[0][1].split("\n\n")), 2)
 
     def test_fallback_on_source_error(self):
         bad, good = FakeSource(error=SourceError("403")), FakeSource([train()])
@@ -141,7 +139,7 @@ class RunTests(unittest.TestCase):
         self.assertEqual([r.id for r in db.list_routes(self.conn)], [2])  # #1 (setUp) deleted
         replies = [t for _, t in tg.sent]
         self.assertIn("Route ajoutée", replies[0])
-        self.assertIn("#2 paris → lyon", replies[1])
+        self.assertIn("#2 · dimanche 15/11", replies[1])
         self.assertIn("Gare inconnue", replies[2])
         self.assertIn("supprimée", replies[3])
         self.assertEqual(len(replies), 4)
@@ -178,6 +176,28 @@ class RunTests(unittest.TestCase):
         self.assertEqual([r.id for r in db.list_routes(self.conn)], [self.route.id])
         self.assertEqual(src.calls, 1)
         self.assertNotIn(old.id, [r.id for r in db.list_routes(self.conn)])
+
+    def test_route_list_groups_round_trips(self):
+        conn = db.connect(":memory:")
+        db.add_route(conn, "montpellier", "lyon", "2026-11-05", "2026-11-05", "04:00", "08:00")
+        db.add_route(conn, "montpellier", "lyon", "2026-11-04", "2026-11-04", "17:00", "20:00")
+        db.add_route(conn, "lyon", "montpellier", "2026-11-05", "2026-11-05", "17:00", "22:00")
+        db.add_route(conn, "montpellier", "lyon", "2026-11-12", "2026-11-12")
+        self.assertEqual(run.format_route_list(db.list_routes(conn)), "\n".join([
+            "🔁 Montpellier Saint-Roch ↔ Lyon",
+            "",
+            "Semaine du 02/11",
+            "Aller :",
+            "  #2 · mercredi 04/11 · 17:00-20:00",
+            "  #1 · jeudi 05/11 · 04:00-08:00",
+            "Retour :",
+            "  #3 · jeudi 05/11 · 17:00-22:00",
+            "",
+            "Semaine du 09/11",
+            "Aller :",
+            "  #4 · jeudi 12/11",
+        ]))
+        conn.close()
 
     def test_dry_run_mode_does_not_persist(self):
         tg = run.PrintClient()

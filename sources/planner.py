@@ -14,7 +14,7 @@ import httpx
 
 from models import Route, SourceError, Train
 from sources import opendata
-from stations import planner_code
+from stations import full_name, planner_code
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def _split_dt(value) -> tuple[str, str] | None:
     return s[:10], s[11:16]
 
 
-def parse_response(data, origin_label: str = "", dest_label: str = "") -> list[Train]:
+def parse_response(data, origin_code: str = "", dest_code: str = "") -> list[Train]:
     """Turn the planner JSON into Trains: {"proposals": [{dep, arr, num, count, ...}], ...}."""
     if not isinstance(data, dict) or not isinstance(data.get("proposals"), list):
         raise SourceError("planner: unexpected response shape (no 'proposals' list)")
@@ -59,7 +59,8 @@ def parse_response(data, origin_label: str = "", dest_label: str = "") -> list[T
             continue
         arr = _split_dt(p.get("arr"))
         t = Train(date=dep[0], dep=dep[1], arr=arr[1] if arr else "", train_no=str(no),
-                  origin=origin_label, dest=dest_label, seats=count)
+                  origin=full_name(origin_code, str(p.get("orig") or "")),
+                  dest=full_name(dest_code, str(p.get("dest") or "")), seats=count)
         trains[t.key] = t
     return list(trains.values())
 
@@ -117,7 +118,7 @@ def fetch_available(route: Route, client: httpx.Client | None = None) -> list[Tr
             if data is None:
                 continue
             try:
-                for t in parse_response(data, route.origin, route.dest):
+                for t in parse_response(data, po, pd):
                     trains.setdefault(t.key, t)  # same train to several stations: keep the first pair
             except SourceError:
                 raise

@@ -4,17 +4,16 @@ import logging
 import os
 import signal
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import db
-from models import Route, SourceError, Train
-from stations import STATIONS
+from models import Route, SourceError, Train, format_day
+from stations import route_station
 from telegram import HELP, Command, CommandError, TelegramClient, TelegramError, parse_command
 
 log = logging.getLogger("run")
 
 WATCHDOG_SECONDS = 600
-WEEKDAYS = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
 
 
 def today_paris() -> date:
@@ -27,28 +26,46 @@ def today_paris() -> date:
 
 # --- formatting ------------------------------------------------------------
 
-def pretty_station(name: str) -> str:
-    if name.lower() in STATIONS:
-        return name.replace("-", " ").title()
-    return name  # raw planner code, kept as typed
-
-
-def format_train(route: Route, t: Train) -> str:
-    d = date.fromisoformat(t.date)
-    when = f"{WEEKDAYS[d.weekday()]} {d.day:02d}/{d.month:02d}"
+def format_train(t: Train) -> str:
     times = f"{t.dep}→{t.arr}" if t.arr else t.dep
     seats = f"{t.seats} places MAX dispo" if t.seats and t.seats > 1 else "place MAX dispo"
-    return (f"🚄 {pretty_station(route.origin)} → {pretty_station(route.dest)} · {when} · "
+    return (f"🚄 {t.origin} → {t.dest} · {format_day(t.date)} · "
             f"{times} · TGV {t.train_no.lstrip('0') or t.train_no} — {seats}")
 
 
 def format_message(groups: list[tuple[Route, list[Train]]], failed: list[Route]) -> str:
-    blocks = ["\n".join(format_train(r, t) for t in trains) for r, trains in groups if trains]
+    blocks = ["\n".join(format_train(t) for t in trains) for r, trains in groups if trains]
     text = "\n\n".join(blocks)
     if failed:
         warn = "⚠️ Sources indisponibles pour : " + ", ".join(f"#{r.id}" for r in failed)
         text = f"{text}\n\n{warn}" if text else warn
     return text
+
+
+def format_route_list(routes: list[Route]) -> str:
+    """Routes by station pair, then week, then direction. The first route added sets the outward way."""
+    pairs: dict[frozenset, list[Route]] = {}
+    for r in routes:
+        pairs.setdefault(frozenset((r.origin, r.dest)), []).append(r)
+
+    def monday(r: Route) -> date:
+        d = date.fromisoformat(r.date_from)
+        return d - timedelta(days=d.weekday())
+
+    blocks = []
+    for group in pairs.values():
+        out, back = group[0].origin, group[0].dest
+        lines = [f"🔁 {route_station(out)} ↔ {route_station(back)}"]
+        for week in sorted({monday(r) for r in group}):
+            lines.append(f"\nSemaine du {week.day:02d}/{week.month:02d}")
+            for title, origin in (("Aller", out), ("Retour", back)):
+                legs = sorted((r for r in group if monday(r) == week and r.origin == origin),
+                              key=lambda r: (r.date_from, r.time_from or ""))
+                if legs:
+                    lines.append(f"{title} :")
+                    lines.extend(f"  {r.slot()}" for r in legs)
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
 
 
 # --- commands --------------------------------------------------------------
@@ -61,7 +78,7 @@ def apply_command(conn, cmd: Command) -> tuple[str, bool]:
         routes = db.list_routes(conn)
         if not routes:
             return "Aucune route surveillée. Ajoute-en une avec /add.", False
-        return "Routes surveillées :\n" + "\n".join(r.label() for r in routes), False
+        return "Routes surveillées :\n\n" + format_route_list(routes), False
     if cmd.name == "del":
         ok = db.delete_route(conn, cmd.route_id)
         return (f"Route #{cmd.route_id} supprimée." if ok else f"Route #{cmd.route_id} introuvable."), False
