@@ -46,6 +46,17 @@ def format_message(groups: list[tuple[Route, list[Train]]], failed: list[Route])
     return text
 
 
+def format_recap(routes: list[Route], counts: dict[int, int]) -> str:
+    """One line per watched route, even when nothing is available."""
+    lines = ["📋 Récap des lignes surveillées :"]
+    for r in routes:
+        n = counts.get(r.id)
+        state = "source indisponible" if n is None else (
+            "0 train pour l'instant" if n == 0 else f"{n} train{'s' if n > 1 else ''} dispo")
+        lines.append(f"• {route_station(r.origin)} → {route_station(r.dest)} · {r.slot()} : {state}")
+    return "\n".join(lines)
+
+
 def format_route_list(routes: list[Route]) -> str:
     """Routes by station pair, then week, then direction. The first route added sets the outward way."""
     pairs: dict[frozenset, list[Route]] = {}
@@ -203,7 +214,8 @@ def run(conn, tg, chat_id: str, sources, today: date, persist: bool = True,
 
     down: set[str] = set()
     groups, failed, current = [], [], {}
-    for route in db.list_routes(conn):
+    routes = db.list_routes(conn)
+    for route in routes:
         avail = check_route(route, sources, down)
         if avail is None:
             failed.append(route)
@@ -221,6 +233,7 @@ def run(conn, tg, chat_id: str, sources, today: date, persist: bool = True,
         text = "Disponibilités actuelles :\n\n" + text
 
     if text:
+        text += "\n\n" + format_recap(routes, {rid: len(k) for rid, k in current.items()})
         try:
             tg.send_message(chat_id, text)
         except TelegramError as e:

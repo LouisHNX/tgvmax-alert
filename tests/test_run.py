@@ -62,8 +62,8 @@ class RunTests(unittest.TestCase):
         tg = FakeTelegram()
         self.assertEqual(self.go(tg, src), 0)
         self.assertEqual(len(tg.sent), 1)
-        self.assertEqual(tg.sent[0][1],
-                         "🚄 Paris Gare de Lyon → Lyon Part-Dieu · dimanche 15/11 · 07:56→09:52 · TGV 6603 — place MAX dispo")
+        self.assertTrue(tg.sent[0][1].startswith(
+            "🚄 Paris Gare de Lyon → Lyon Part-Dieu · dimanche 15/11 · 07:56→09:52 · TGV 6603 — place MAX dispo\n\n📋"))
         self.go(tg, src)
         self.assertEqual(len(tg.sent), 1)  # nothing new
 
@@ -102,7 +102,15 @@ class RunTests(unittest.TestCase):
         tg = FakeTelegram()
         self.go(tg, ("p", FakeSource([train()])))
         self.assertEqual(len(tg.sent), 1)  # ONE message
-        self.assertEqual(len(tg.sent[0][1].split("\n\n")), 2)
+        self.assertEqual(len(tg.sent[0][1].split("\n\n")), 3)  # train block, other route has none, recap
+
+    def test_recap_lists_every_route_with_zero(self):
+        db.add_route(self.conn, "lille", "nantes", "2026-11-15", "2026-11-15", "20:00", "22:00")
+        tg = FakeTelegram()
+        self.go(tg, ("p", FakeSource([train()])))
+        recap = tg.sent[0][1].split("📋")[1]
+        self.assertIn("1 train dispo", recap)
+        self.assertIn("0 train pour l'instant", recap)
 
     def test_fallback_on_source_error(self):
         bad, good = FakeSource(error=SourceError("403")), FakeSource([train()])
